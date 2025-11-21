@@ -5,237 +5,274 @@ import com.example.railwaymanagementsystem.models.Schedule;
 import com.example.railwaymanagementsystem.models.Train;
 import com.example.railwaymanagementsystem.models.User;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 /**
- * In-memory data storage for trains, schedules, users and bookings.
+ * Repository layer that delegates to DatabaseService for persistent storage
  */
 public final class BackendRepository {
     private static final BackendRepository INSTANCE = new BackendRepository();
+    private final DatabaseService db = DatabaseService.getInstance();
 
-    private final Map<String, User> usersByEmail = new LinkedHashMap<>();
-    private final Map<String, User> usersById = new LinkedHashMap<>();
-    private final Map<String, Train> trainsById = new LinkedHashMap<>();
-    private final Map<String, Schedule> schedulesById = new LinkedHashMap<>();
-    private final List<Booking> bookings = new ArrayList<>();
-
-    private int nextUserId = 100;
-    private int nextTrainId = 200;
-    private int nextScheduleId = 300;
-    private int nextBookingId = 400;
-
-    private BackendRepository() {
-        seedUsers();
-        seedTrains();
-        seedSchedules();
-        seedBookings();
-    }
+    private BackendRepository() {}
 
     public static BackendRepository getInstance() {
         return INSTANCE;
     }
 
-    private void seedUsers() {
-        User admin = new User(generateUserId(), "System Admin", "admin@railsafar.com", "0300-0000000", "admin", "admin123");
-        admin.setCnic("35202-1234567-1");
-        admin.setDateOfBirth(LocalDate.of(1985, 5, 12));
-        admin.setGender("Male");
-        admin.setAddress("HQ, Rail Safar Building");
-        admin.setCity("Karachi");
-        admin.setPostalCode("75500");
-        addUser(admin);
-
-        User sarah = new User(generateUserId(), "Sarah Khan", "sarah.khan@example.com", "0300-1111111", "passenger", "password1");
-        sarah.setCnic("61101-9876543-2");
-        sarah.setDateOfBirth(LocalDate.of(1994, 3, 8));
-        sarah.setGender("Female");
-        sarah.setAddress("12 Defence View");
-        sarah.setCity("Karachi");
-        sarah.setPostalCode("75400");
-        addUser(sarah);
-
-        User ali = new User(generateUserId(), "Ali Asghar", "ali.asghar@example.com", "0300-2222222", "passenger", "password2");
-        ali.setCnic("37405-4567890-3");
-        ali.setDateOfBirth(LocalDate.of(1990, 11, 21));
-        ali.setGender("Male");
-        ali.setAddress("44 Satellite Town");
-        ali.setCity("Rawalpindi");
-        ali.setPostalCode("46000");
-        addUser(ali);
-    }
-
-    private void seedTrains() {
-        addTrain(new Train(generateTrainId(), "1UP", "Karachi Express", "Express", "Karachi - Lahore", "On-time"));
-        addTrain(new Train(generateTrainId(), "2DN", "Lahore Express", "Express", "Lahore - Karachi", "Delayed"));
-        addTrain(new Train(generateTrainId(), "3UP", "Green Line", "Passenger", "Islamabad - Multan", "On-time"));
-        addTrain(new Train(generateTrainId(), "5UP", "Business Express", "Express", "Rawalpindi - Quetta", "On-time"));
-        addTrain(new Train(generateTrainId(), "6DN", "Peshawar Mail", "Passenger", "Peshawar - Karachi", "Delayed"));
-        addTrain(new Train(generateTrainId(), "7UP", "Night Coach", "Express", "Karachi - Islamabad", "On-time"));
-    }
-
-    private void seedSchedules() {
-        addSchedule(new Schedule(generateScheduleId(), "1UP", "Karachi Express", "08:00 AM", "08:00 PM", "Karachi - Lahore", "Daily", "Active"));
-        addSchedule(new Schedule(generateScheduleId(), "2DN", "Lahore Express", "09:00 AM", "09:00 PM", "Lahore - Karachi", "Daily", "Active"));
-        addSchedule(new Schedule(generateScheduleId(), "3UP", "Green Line", "10:30 AM", "06:30 PM", "Islamabad - Multan", "Mon-Fri", "Active"));
-        addSchedule(new Schedule(generateScheduleId(), "5UP", "Business Express", "07:00 AM", "05:00 PM", "Rawalpindi - Quetta", "Daily", "Active"));
-        addSchedule(new Schedule(generateScheduleId(), "6DN", "Peshawar Mail", "11:00 AM", "11:00 PM", "Peshawar - Karachi", "Daily", "Active"));
-        addSchedule(new Schedule(generateScheduleId(), "7UP", "Night Coach", "11:30 PM", "09:30 AM", "Karachi - Islamabad", "Daily", "Active"));
-    }
-
-    private void seedBookings() {
-        findTrainByNumber("1UP").ifPresent(train -> bookings.add(new Booking(
-                generateBookingId(),
-                "101",
-                train.getId(),
-                train.getTrainNumber(),
-                train.getTrainName(),
-                "Karachi",
-                "Lahore",
-                LocalDate.now().plusDays(2),
-                2,
-                "Economy",
-                5000,
-                "Confirmed",
-                LocalDateTime.now().minusDays(1),
-                "Card",
-                "Paid"
-        )));
-        findTrainByNumber("2DN").ifPresent(train -> bookings.add(new Booking(
-                generateBookingId(),
-                "102",
-                train.getId(),
-                train.getTrainNumber(),
-                train.getTrainName(),
-                "Lahore",
-                "Karachi",
-                LocalDate.now().plusDays(5),
-                1,
-                "Business",
-                3000,
-                "Confirmed",
-                LocalDateTime.now().minusHours(5),
-                "Cash on Delivery",
-                "Paid"
-        )));
-    }
-
-    private String generateUserId() {
-        return String.valueOf(nextUserId++);
-    }
-
-    private String generateTrainId() {
-        return String.valueOf(nextTrainId++);
-    }
-
-    private String generateScheduleId() {
-        return String.valueOf(nextScheduleId++);
-    }
-
-    private String generateBookingId() {
-        return String.valueOf(nextBookingId++);
-    }
-
+    // User operations
     public Optional<User> findUserByEmail(String email) {
-        return Optional.ofNullable(usersByEmail.get(email.toLowerCase(Locale.ROOT)));
+        try {
+            return db.findUserByEmail(email);
+        } catch (SQLException e) {
+            System.err.println("Error finding user by email: " + e.getMessage());
+            e.printStackTrace();
+            return Optional.empty();
+        }
     }
 
     public Optional<User> findUserById(String id) {
-        return Optional.ofNullable(usersById.get(id));
+        try {
+            return db.findUserById(id);
+        } catch (SQLException e) {
+            System.err.println("Error finding user by id: " + e.getMessage());
+            e.printStackTrace();
+            return Optional.empty();
+        }
     }
 
     public Collection<User> getUsers() {
-        return Collections.unmodifiableCollection(usersById.values());
+        try {
+            return db.getAllUsers();
+        } catch (SQLException e) {
+            System.err.println("Error getting users: " + e.getMessage());
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
     }
 
     public User addUser(User user) {
-        usersByEmail.put(user.getEmail().toLowerCase(Locale.ROOT), user);
-        usersById.put(user.getId(), user);
-        return user;
+        try {
+            return db.addUser(user);
+        } catch (SQLException e) {
+            System.err.println("Error adding user: " + e.getMessage());
+            e.printStackTrace();
+            return user;
+        }
     }
 
-    public void updateUser(User user, String previousEmail) {
-        if (previousEmail != null && !previousEmail.equalsIgnoreCase(user.getEmail())) {
-            usersByEmail.remove(previousEmail.toLowerCase(Locale.ROOT));
+    public boolean updateUser(User user) {
+        try {
+            return db.updateUser(user);
+        } catch (SQLException e) {
+            System.err.println("Error updating user: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
-        usersByEmail.put(user.getEmail().toLowerCase(Locale.ROOT), user);
-        usersById.put(user.getId(), user);
     }
 
     public boolean emailExists(String email, String excludeUserId) {
-        User existing = usersByEmail.get(email.toLowerCase(Locale.ROOT));
-        return existing != null && !existing.getId().equals(excludeUserId);
+        try {
+            return db.emailExists(email, excludeUserId);
+        } catch (SQLException e) {
+            System.err.println("Error checking email existence: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 
-    public Collection<Train> getTrains() {
-        return Collections.unmodifiableCollection(trainsById.values());
+    public String nextUserId() {
+        try {
+            return db.getNextUserId();
+        } catch (SQLException e) {
+            System.err.println("Error getting next user id: " + e.getMessage());
+            e.printStackTrace();
+            return "1";
+        }
     }
 
-    public Train addTrain(Train train) {
-        trainsById.put(train.getId(), train);
-        return train;
+    // Train operations
+    public List<Train> getTrains() {
+        try {
+            return db.getAllTrains();
+        } catch (SQLException e) {
+            System.err.println("Error getting trains: " + e.getMessage());
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
     }
 
-    public void removeTrain(String id) {
-        Train removed = trainsById.remove(id);
-        if (removed != null) {
-            schedulesById.values().removeIf(schedule -> schedule.getTrainNumber().equals(removed.getTrainNumber()));
+    public Optional<Train> findTrainById(String id) {
+        try {
+            return db.findTrainById(id);
+        } catch (SQLException e) {
+            System.err.println("Error finding train by id: " + e.getMessage());
+            e.printStackTrace();
+            return Optional.empty();
         }
     }
 
     public Optional<Train> findTrainByNumber(String trainNumber) {
-        return trainsById.values().stream()
-                .filter(train -> train.getTrainNumber().equalsIgnoreCase(trainNumber))
-                .findFirst();
+        try {
+            return db.findTrainByNumber(trainNumber);
+        } catch (SQLException e) {
+            System.err.println("Error finding train by number: " + e.getMessage());
+            e.printStackTrace();
+            return Optional.empty();
+        }
     }
 
-    public Collection<Schedule> getSchedules() {
-        return Collections.unmodifiableCollection(schedulesById.values());
+    public Train addTrain(Train train) {
+        try {
+            return db.addTrain(train);
+        } catch (SQLException e) {
+            System.err.println("Error adding train: " + e.getMessage());
+            e.printStackTrace();
+            return train;
+        }
     }
 
-    public Schedule addSchedule(Schedule schedule) {
-        schedulesById.put(schedule.getId(), schedule);
-        return schedule;
+    public boolean updateTrain(Train train) {
+        try {
+            return db.updateTrain(train);
+        } catch (SQLException e) {
+            System.err.println("Error updating train: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 
-    public void removeSchedule(Schedule schedule) {
-        schedulesById.remove(schedule.getId());
-    }
-
-    public Optional<Schedule> findScheduleByTrainNumber(String trainNumber) {
-        return schedulesById.values().stream()
-                .filter(schedule -> schedule.getTrainNumber().equalsIgnoreCase(trainNumber))
-                .findFirst();
-    }
-
-    public List<Booking> getBookings() {
-        return Collections.unmodifiableList(bookings);
-    }
-
-    public Booking addBooking(Booking booking) {
-        bookings.add(booking);
-        return booking;
-    }
-
-    public String nextUserId() {
-        return generateUserId();
+    public void removeTrain(String id) {
+        try {
+            db.removeTrain(id);
+        } catch (SQLException e) {
+            System.err.println("Error removing train: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public String nextTrainId() {
-        return generateTrainId();
+        try {
+            return db.getNextTrainId();
+        } catch (SQLException e) {
+            System.err.println("Error getting next train id: " + e.getMessage());
+            e.printStackTrace();
+            return "1";
+        }
+    }
+
+    // Schedule operations
+    public List<Schedule> getSchedules() {
+        try {
+            return db.getAllSchedules();
+        } catch (SQLException e) {
+            System.err.println("Error getting schedules: " + e.getMessage());
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+
+    public Optional<Schedule> findScheduleByTrainNumber(String trainNumber) {
+        try {
+            return db.findScheduleByTrainNumber(trainNumber);
+        } catch (SQLException e) {
+            System.err.println("Error finding schedule: " + e.getMessage());
+            e.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    public Schedule addSchedule(Schedule schedule) {
+        try {
+            return db.addSchedule(schedule);
+        } catch (SQLException e) {
+            System.err.println("Error adding schedule: " + e.getMessage());
+            e.printStackTrace();
+            return schedule;
+        }
+    }
+
+    public boolean updateSchedule(Schedule schedule) {
+        try {
+            return db.updateSchedule(schedule);
+        } catch (SQLException e) {
+            System.err.println("Error updating schedule: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public void removeSchedule(Schedule schedule) {
+        try {
+            db.removeSchedule(schedule.getId());
+        } catch (SQLException e) {
+            System.err.println("Error removing schedule: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public String nextScheduleId() {
-        return generateScheduleId();
+        try {
+            return db.getNextScheduleId();
+        } catch (SQLException e) {
+            System.err.println("Error getting next schedule id: " + e.getMessage());
+            e.printStackTrace();
+            return "1";
+        }
+    }
+
+    // Booking operations
+    public List<Booking> getBookings() {
+        try {
+            return db.getAllBookings();
+        } catch (SQLException e) {
+            System.err.println("Error getting bookings: " + e.getMessage());
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+
+    public Optional<Booking> findBookingById(String id) {
+        try {
+            return db.findBookingById(id);
+        } catch (SQLException e) {
+            System.err.println("Error finding booking: " + e.getMessage());
+            e.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    public Booking addBooking(Booking booking) {
+        try {
+            return db.addBooking(booking);
+        } catch (SQLException e) {
+            System.err.println("Error adding booking: " + e.getMessage());
+            e.printStackTrace();
+            return booking;
+        }
+    }
+
+    public boolean updateBooking(Booking booking) {
+        try {
+            return db.updateBooking(booking);
+        } catch (SQLException e) {
+            System.err.println("Error updating booking: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public String nextBookingId() {
-        return generateBookingId();
-    }
-
-    public Optional<Booking> findBookingById(String bookingId) {
-        return bookings.stream().filter(b -> b.getId().equalsIgnoreCase(bookingId)).findFirst();
+        try {
+            return db.getNextBookingId();
+        } catch (SQLException e) {
+            System.err.println("Error getting next booking id: " + e.getMessage());
+            e.printStackTrace();
+            return "1";
+        }
     }
 }
-

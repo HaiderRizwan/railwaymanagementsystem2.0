@@ -55,8 +55,10 @@ public final class BackendService {
         if (repo.emailExists(updatedUser.getEmail(), updatedUser.getId())) {
             return Optional.empty();
         }
-        repo.updateUser(updatedUser, existing.get().getEmail());
-        return Optional.of(updatedUser);
+        if (repo.updateUser(updatedUser)) {
+            return Optional.of(updatedUser);
+        }
+        return Optional.empty();
     }
 
     public List<Train> getTrains() {
@@ -111,7 +113,7 @@ public final class BackendService {
         booking.setPaymentMethod(paymentMethod);
         booking.setPaymentStatus("Paid");
         booking.setStatus("Confirmed");
-        return true;
+        return repo.updateBooking(booking);
     }
 
     public List<Booking> getPendingPaymentsForUser(String userId) {

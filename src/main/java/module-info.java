@@ -1,6 +1,7 @@
 module com.example.railwaymanagementsystem {
     requires javafx.controls;
     requires javafx.fxml;
+    requires java.sql;
 
 
     opens com.example.railwaymanagementsystem to javafx.fxml;

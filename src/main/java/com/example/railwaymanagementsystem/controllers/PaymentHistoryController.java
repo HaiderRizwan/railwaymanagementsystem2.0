@@ -47,101 +47,106 @@ public class PaymentHistoryController {
 
     private void loadPaymentHistory() {
         ObservableList<PaymentRecord> payments = FXCollections.observableArrayList();
-        session.getCurrentUser().ifPresent(user -> {
-            List<Booking> bookings = backend.getBookingsForUser(user.getId());
-            // Only show paid bookings
-            payments.addAll(bookings.stream()
-                    .filter(booking -> "Paid".equals(booking.getPaymentStatus()))
-                    .map(booking -> new PaymentRecord(
-                            booking.getBookingDateTime().format(DATE_FORMATTER),
-                            booking.getId(),
-                            booking.getTrainNumber() + " - " + booking.getTrainName(),
-                            booking.getFromStation() + " → " + booking.getToStation(),
-                            "PKR " + String.format("%,.0f", booking.getTotalAmount()),
-                            booking.getPaymentMethod() != null && !booking.getPaymentMethod().isEmpty() 
-                                    ? booking.getPaymentMethod() : "N/A",
-                            booking.getPaymentStatus()
-                    )).toList());
+        
+        try {
+            session.getCurrentUser().ifPresentOrElse(user -> {
+                List<Booking> bookings = backend.getBookingsForUser(user.getId());
+                System.out.println("Found " + bookings.size() + " bookings for user " + user.getId());
+                
+                // Only show paid bookings
+                List<PaymentRecord> paidBookings = bookings.stream()
+                        .filter(booking -> {
+                            String status = booking.getPaymentStatus();
+                            System.out.println("Booking " + booking.getId() + " payment status: " + status);
+                            return "Paid".equals(status);
+                        })
+                        .map(booking -> new PaymentRecord(
+                                booking.getBookingDateTime().format(DATE_FORMATTER),
+                                booking.getId(),
+                                booking.getTrainNumber() + " - " + booking.getTrainName(),
+                                booking.getFromStation() + " → " + booking.getToStation(),
+                                "PKR " + String.format("%,.0f", booking.getTotalAmount()),
+                                booking.getPaymentMethod() != null && !booking.getPaymentMethod().isEmpty() 
+                                        ? booking.getPaymentMethod() : "N/A",
+                                booking.getPaymentStatus()
+                        )).toList();
+                
+                System.out.println("Found " + paidBookings.size() + " paid bookings");
+                payments.addAll(paidBookings);
 
-            totalSpentLabel.setText("PKR " + String.format("%,.0f",
-                    bookings.stream().mapToDouble(Booking::getTotalAmount).sum()));
-            totalTripsLabel.setText(String.valueOf(bookings.size()));
-            long thisMonth = bookings.stream()
-                    .filter(b -> b.getBookingDateTime().getMonthValue() == LocalDate.now().getMonthValue())
-                    .count();
-            thisMonthLabel.setText(String.valueOf(thisMonth));
-        });
+                // Calculate statistics from all bookings
+                double totalSpent = bookings.stream()
+                        .filter(b -> "Paid".equals(b.getPaymentStatus()))
+                        .mapToDouble(Booking::getTotalAmount)
+                        .sum();
+                totalSpentLabel.setText("PKR " + String.format("%,.0f", totalSpent));
+                
+                long paidCount = bookings.stream()
+                        .filter(b -> "Paid".equals(b.getPaymentStatus()))
+                        .count();
+                totalTripsLabel.setText(String.valueOf(paidCount));
+                
+                long thisMonth = bookings.stream()
+                        .filter(b -> "Paid".equals(b.getPaymentStatus()))
+                        .filter(b -> b.getBookingDateTime().getMonthValue() == LocalDate.now().getMonthValue() &&
+                                    b.getBookingDateTime().getYear() == LocalDate.now().getYear())
+                        .count();
+                thisMonthLabel.setText(String.valueOf(thisMonth));
+            }, () -> {
+                System.out.println("No user session found");
+            });
+        } catch (Exception e) {
+            System.err.println("Error loading payment history: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         if (paymentTable != null) {
             paymentTable.setItems(payments);
+            System.out.println("Set " + payments.size() + " payment records to table");
+        } else {
+            System.err.println("Payment table is null!");
         }
     }
 
     private void setupTableColumns() {
-        // Option 1: If you have individual column references in FXML
-        if (dateColumn != null) {
-            dateColumn.setCellValueFactory(cellData ->
-                    new SimpleStringProperty(cellData.getValue().getDate()));
-        }
-        if (pnrColumn != null) {
-            pnrColumn.setCellValueFactory(cellData ->
-                    new SimpleStringProperty(cellData.getValue().getPnr()));
-        }
-        if (trainColumn != null) {
-            trainColumn.setCellValueFactory(cellData ->
-                    new SimpleStringProperty(cellData.getValue().getTrain()));
-        }
-        if (routeColumn != null) {
-            routeColumn.setCellValueFactory(cellData ->
-                    new SimpleStringProperty(cellData.getValue().getRoute()));
-        }
-        if (amountColumn != null) {
-            amountColumn.setCellValueFactory(cellData ->
-                    new SimpleStringProperty(cellData.getValue().getAmount()));
-        }
-        if (paymentModeColumn != null) {
-            paymentModeColumn.setCellValueFactory(cellData ->
-                    new SimpleStringProperty(cellData.getValue().getPaymentMode()));
-        }
-        if (statusColumn != null) {
-            statusColumn.setCellValueFactory(cellData ->
-                    new SimpleStringProperty(cellData.getValue().getStatus()));
-        }
-
-        // Option 2: If columns are defined in FXML but without fx:id, access by index
-        // (Use this only if you don't have individual column references)
-        /*
+        // Set up columns by index since they don't have fx:id in FXML
         if (paymentTable != null && !paymentTable.getColumns().isEmpty()) {
             if (paymentTable.getColumns().size() > 0) {
-                ((TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(0))
-                    .setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getDate()));
+                @SuppressWarnings("unchecked")
+                TableColumn<PaymentRecord, String> col = (TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(0);
+                col.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getDate()));
             }
             if (paymentTable.getColumns().size() > 1) {
-                ((TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(1))
-                    .setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getPnr()));
+                @SuppressWarnings("unchecked")
+                TableColumn<PaymentRecord, String> col = (TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(1);
+                col.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getPnr()));
             }
             if (paymentTable.getColumns().size() > 2) {
-                ((TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(2))
-                    .setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getTrain()));
+                @SuppressWarnings("unchecked")
+                TableColumn<PaymentRecord, String> col = (TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(2);
+                col.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getTrain()));
             }
             if (paymentTable.getColumns().size() > 3) {
-                ((TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(3))
-                    .setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getRoute()));
+                @SuppressWarnings("unchecked")
+                TableColumn<PaymentRecord, String> col = (TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(3);
+                col.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getRoute()));
             }
             if (paymentTable.getColumns().size() > 4) {
-                ((TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(4))
-                    .setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getAmount()));
+                @SuppressWarnings("unchecked")
+                TableColumn<PaymentRecord, String> col = (TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(4);
+                col.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getAmount()));
             }
             if (paymentTable.getColumns().size() > 5) {
-                ((TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(5))
-                    .setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getPaymentMode()));
+                @SuppressWarnings("unchecked")
+                TableColumn<PaymentRecord, String> col = (TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(5);
+                col.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getPaymentMode()));
             }
             if (paymentTable.getColumns().size() > 6) {
-                ((TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(6))
-                    .setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getStatus()));
+                @SuppressWarnings("unchecked")
+                TableColumn<PaymentRecord, String> col = (TableColumn<PaymentRecord, String>) paymentTable.getColumns().get(6);
+                col.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getStatus()));
             }
         }
-        */
     }
 
     @FXML

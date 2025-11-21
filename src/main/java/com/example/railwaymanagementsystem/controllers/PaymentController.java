@@ -19,6 +19,7 @@ import java.util.Optional;
  */
 public class PaymentController {
 
+    @FXML private VBox bookingsListContainer;
     @FXML private VBox bookingsContainer;
     @FXML private Label noBookingsLabel;
     @FXML private VBox paymentDetailsContainer;
@@ -35,7 +36,7 @@ public class PaymentController {
     @FXML private TextField cardNameField;
     @FXML private TextField expiryField;
     @FXML private TextField cvvField;
-    @FXML private Button proceedPaymentButton;
+    @FXML private Button clickToPayButton;
     @FXML private Button cancelButton;
 
     private final BackendService backend = BackendService.getInstance();
@@ -70,21 +71,28 @@ public class PaymentController {
         
         if (pendingBookings.isEmpty()) {
             noBookingsLabel.setVisible(true);
-            bookingsContainer.setVisible(false);
+            noBookingsLabel.setManaged(true);
+            if (bookingsListContainer != null) {
+                bookingsListContainer.setVisible(false);
+                bookingsListContainer.setManaged(false);
+            }
             paymentDetailsContainer.setVisible(false);
+            paymentDetailsContainer.setManaged(false);
             return;
         }
 
         noBookingsLabel.setVisible(false);
-        bookingsContainer.setVisible(false);
+        noBookingsLabel.setManaged(false);
+        if (bookingsListContainer != null) {
+            bookingsListContainer.setVisible(true);
+            bookingsListContainer.setManaged(true);
+        }
         bookingsContainer.getChildren().clear();
 
         for (Booking booking : pendingBookings) {
             VBox bookingCard = createBookingCard(booking);
             bookingsContainer.getChildren().add(bookingCard);
         }
-
-        bookingsContainer.setVisible(true);
         
         // Auto-select first booking if available
         if (!pendingBookings.isEmpty()) {
@@ -94,11 +102,28 @@ public class PaymentController {
 
     private VBox createBookingCard(Booking booking) {
         VBox card = new VBox(10);
-        card.setStyle("-fx-background-color: white; -fx-padding: 15px; " +
-                "-fx-border-color: #e5e7eb; -fx-border-width: 1px; " +
-                "-fx-border-radius: 8px; -fx-background-radius: 8px; " +
-                "-fx-cursor: hand;");
-        card.setOnMouseClicked(e -> selectBooking(booking));
+        // Store booking reference in userData for easy retrieval
+        card.setUserData(booking);
+        updateCardStyle(card, booking);
+        
+        // Add hover effects
+        card.setOnMouseEntered(e -> {
+            if (selectedBooking == null || !selectedBooking.getId().equals(booking.getId())) {
+                card.setStyle("-fx-background-color: #f0fdf4; -fx-padding: 15px; " +
+                        "-fx-border-color: #1e6b47; -fx-border-width: 2px; " +
+                        "-fx-border-radius: 8px; -fx-background-radius: 8px; " +
+                        "-fx-cursor: hand;");
+            }
+        });
+        
+        card.setOnMouseExited(e -> {
+            updateCardStyle(card, booking);
+        });
+        
+        card.setOnMouseClicked(e -> {
+            e.consume();
+            selectBooking(booking);
+        });
 
         HBox header = new HBox(10);
         header.setAlignment(Pos.CENTER_LEFT);
@@ -130,6 +155,7 @@ public class PaymentController {
     private void selectBooking(Booking booking) {
         selectedBooking = booking;
         paymentDetailsContainer.setVisible(true);
+        paymentDetailsContainer.setManaged(true);
 
         bookingInfoLabel.setText("PNR: " + booking.getId());
         trainInfoLabel.setText(booking.getTrainNumber() + " - " + booking.getTrainName());
@@ -143,10 +169,42 @@ public class PaymentController {
         cardDetailsContainer.setVisible(false);
         cardDetailsContainer.setManaged(false);
         clearCardFields();
+        
+        // Update card styles to show selected
+        updateCardStyles();
+    }
+    
+    private void updateCardStyle(VBox card, Booking booking) {
+        boolean isSelected = selectedBooking != null && selectedBooking.getId().equals(booking.getId());
+        if (isSelected) {
+            card.setStyle("-fx-background-color: #e8f5f0; -fx-padding: 15px; " +
+                    "-fx-border-color: #1e6b47; -fx-border-width: 2px; " +
+                    "-fx-border-radius: 8px; -fx-background-radius: 8px; " +
+                    "-fx-cursor: hand;");
+        } else {
+            card.setStyle("-fx-background-color: white; -fx-padding: 15px; " +
+                    "-fx-border-color: #e5e7eb; -fx-border-width: 1px; " +
+                    "-fx-border-radius: 8px; -fx-background-radius: 8px; " +
+                    "-fx-cursor: hand;");
+        }
+    }
+    
+    private void updateCardStyles() {
+        if (bookingsContainer == null) return;
+        
+        for (javafx.scene.Node node : bookingsContainer.getChildren()) {
+            if (node instanceof VBox) {
+                VBox card = (VBox) node;
+                Object userData = card.getUserData();
+                if (userData instanceof Booking) {
+                    updateCardStyle(card, (Booking) userData);
+                }
+            }
+        }
     }
 
     @FXML
-    private void handleProceedPayment() {
+    private void handleClickToPay() {
         if (selectedBooking == null) {
             showError("Please select a booking to pay");
             return;
@@ -154,7 +212,7 @@ public class PaymentController {
 
         RadioButton selected = (RadioButton) paymentMethodGroup.getSelectedToggle();
         if (selected == null) {
-            showError("Please select a payment method");
+            showError("Please select a payment method (Cash on Delivery or Card)");
             return;
         }
 
@@ -166,29 +224,26 @@ public class PaymentController {
             }
         }
 
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.setTitle("Confirm Payment");
-        confirm.setHeaderText("Proceed with payment?");
-        confirm.setContentText(
-                "Booking: " + selectedBooking.getId() + "\n" +
-                "Amount: PKR " + String.format("%,.0f", selectedBooking.getTotalAmount()) + "\n" +
-                "Payment Method: " + paymentMethod
-        );
-
-        confirm.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
-                boolean success = backend.processPayment(selectedBooking.getId(), paymentMethod);
-                if (success) {
-                    showSuccess("Payment processed successfully!\n\n" +
-                            "PNR: " + selectedBooking.getId() + "\n" +
-                            "Your ticket is now confirmed.");
-                    clearCardFields();
-                    loadPendingBookings();
-                } else {
-                    showError("Payment failed. Please try again.");
-                }
-            }
-        });
+        // Process payment directly
+        boolean success = backend.processPayment(selectedBooking.getId(), paymentMethod);
+        if (success) {
+            Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+            successAlert.setTitle("Payment Successful");
+            successAlert.setHeaderText("✅ Payment Successful!");
+            successAlert.setContentText(
+                    "Your payment has been processed successfully!\n\n" +
+                    "PNR: " + selectedBooking.getId() + "\n" +
+                    "Amount: PKR " + String.format("%,.0f", selectedBooking.getTotalAmount()) + "\n" +
+                    "Payment Method: " + paymentMethod + "\n\n" +
+                    "Your ticket is now confirmed. You can view it in Payment History."
+            );
+            successAlert.showAndWait();
+            
+            clearCardFields();
+            loadPendingBookings();
+        } else {
+            showError("Payment failed. Please try again.");
+        }
     }
 
     private boolean validateCardDetails() {
@@ -222,7 +277,9 @@ public class PaymentController {
     private void handleCancel() {
         selectedBooking = null;
         paymentDetailsContainer.setVisible(false);
+        paymentDetailsContainer.setManaged(false);
         clearCardFields();
+        updateCardStyles();
     }
 
     private void showError(String message) {

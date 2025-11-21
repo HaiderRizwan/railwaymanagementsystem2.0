@@ -4,14 +4,16 @@
 <?import javafx.scene.control.*?>
 <?import javafx.geometry.Insets?>
 
-<VBox xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.example.railwaymanagementsystem.controllers.PaymentController"
-      spacing="20" style="-fx-padding: 30; -fx-background-color: #f9fafb;">
+<ScrollPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.example.railwaymanagementsystem.controllers.PaymentController"
+            fitToWidth="true"
+            style="-fx-background-color: #f9fafb; -fx-padding: 0;">
+    <VBox spacing="15" style="-fx-padding: 20; -fx-background-color: #f9fafb;">
 
     <!-- Header -->
     <VBox spacing="5">
-        <Label text="💳 Payment" style="-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #1e6b47;"/>
-        <Label text="Complete payment for your bookings" style="-fx-font-size: 14px; -fx-text-fill: #6b7280;"/>
+        <Label text="💳 Payment" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #1e6b47;"/>
+        <Label text="Complete payment for your bookings" style="-fx-font-size: 13px; -fx-text-fill: #6b7280;"/>
     </VBox>
 
     <!-- No Bookings Label -->
@@ -20,21 +22,21 @@
            visible="false"/>
 
     <!-- Bookings List -->
-    <VBox spacing="10" visible="true">
-        <Label text="Pending Payments:" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1f2937;"/>
-        <VBox fx:id="bookingsContainer" spacing="10"/>
+    <VBox fx:id="bookingsListContainer" spacing="10" visible="false">
+        <Label text="Pending Payments:" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1f2937;"/>
+        <VBox fx:id="bookingsContainer" spacing="8"/>
     </VBox>
 
     <!-- Payment Details -->
-    <VBox fx:id="paymentDetailsContainer" spacing="20" 
-          style="-fx-background-color: white; -fx-padding: 25; -fx-border-radius: 8px; -fx-background-radius: 8px; -fx-border-color: #e5e7eb; -fx-border-width: 1px;"
+    <VBox fx:id="paymentDetailsContainer" spacing="15" 
+          style="-fx-background-color: white; -fx-padding: 20; -fx-border-radius: 8px; -fx-background-radius: 8px; -fx-border-color: #e5e7eb; -fx-border-width: 1px;"
           visible="false">
         
         <!-- Booking Summary -->
-        <VBox spacing="15">
-            <Label text="Booking Summary" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #1f2937;"/>
+        <VBox spacing="12">
+            <Label text="Booking Summary" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1f2937;"/>
             
-            <GridPane hgap="15" vgap="10">
+            <GridPane hgap="12" vgap="8">
                 <columnConstraints>
                     <ColumnConstraints minWidth="120" prefWidth="120"/>
                     <ColumnConstraints hgrow="ALWAYS"/>
@@ -64,43 +66,44 @@
         <Separator/>
 
         <!-- Payment Method Selection -->
-        <VBox spacing="15">
-            <Label text="Select Payment Method" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #1f2937;"/>
+        <VBox spacing="12">
+            <Label text="Select Payment Method" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1f2937;"/>
             
-            <VBox spacing="10">
+            <VBox spacing="8">
                 <RadioButton fx:id="cashOnDeliveryRadio" text="💰 Cash on Delivery" 
-                             style="-fx-font-size: 14px;"/>
+                             style="-fx-font-size: 13px;"/>
                 <RadioButton fx:id="cardRadio" text="💳 Credit/Debit Card" 
-                             style="-fx-font-size: 14px;"/>
+                             style="-fx-font-size: 13px;"/>
             </VBox>
 
             <!-- Card Details -->
-            <VBox fx:id="cardDetailsContainer" spacing="15" 
-                  style="-fx-background-color: #f9fafb; -fx-padding: 20; -fx-border-radius: 8px; -fx-background-radius: 8px;"
+            <VBox fx:id="cardDetailsContainer" spacing="12" 
+                  style="-fx-background-color: #f9fafb; -fx-padding: 15; -fx-border-radius: 8px; -fx-background-radius: 8px;"
                   visible="false">
-                <Label text="Card Details" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Label text="Card Details" style="-fx-font-size: 15px; -fx-font-weight: bold;"/>
                 
                 <TextField fx:id="cardNumberField" promptText="Card Number (16 digits)" 
-                           style="-fx-pref-width: 400;"/>
+                           maxWidth="Infinity"/>
                 <TextField fx:id="cardNameField" promptText="Cardholder Name" 
-                           style="-fx-pref-width: 400;"/>
+                           maxWidth="Infinity"/>
                 
                 <HBox spacing="10">
                     <TextField fx:id="expiryField" promptText="MM/YY" 
-                               style="-fx-pref-width: 150;"/>
+                               HBox.hgrow="ALWAYS"/>
                     <TextField fx:id="cvvField" promptText="CVV" 
-                               style="-fx-pref-width: 100;"/>
+                               prefWidth="120"/>
                 </HBox>
             </VBox>
         </VBox>
 
         <!-- Action Buttons -->
-        <HBox spacing="10" alignment="CENTER_RIGHT">
+        <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10 0 0 0;">
             <Button fx:id="cancelButton" text="Cancel" onAction="#handleCancel"
-                    style="-fx-background-color: #e5e7eb; -fx-text-fill: #1f2937; -fx-padding: 10 20; -fx-background-radius: 6px; -fx-cursor: hand;"/>
-            <Button fx:id="proceedPaymentButton" text="Proceed to Payment" onAction="#handleProceedPayment"
-                    style="-fx-background-color: #1e6b47; -fx-text-fill: white; -fx-padding: 10 30; -fx-background-radius: 6px; -fx-cursor: hand; -fx-font-weight: bold;"/>
+                    style="-fx-background-color: #e5e7eb; -fx-text-fill: #1f2937; -fx-padding: 8 18; -fx-background-radius: 6px; -fx-cursor: hand;"/>
+            <Button fx:id="clickToPayButton" text="💳 Click to Pay" onAction="#handleClickToPay"
+                    style="-fx-background-color: #1e6b47; -fx-text-fill: white; -fx-padding: 8 25; -fx-background-radius: 6px; -fx-cursor: hand; -fx-font-weight: bold; -fx-font-size: 13px;"/>
         </HBox>
     </VBox>
-</VBox>
+    </VBox>
+</ScrollPane>
 

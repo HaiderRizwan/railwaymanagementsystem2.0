@@ -8,6 +8,7 @@ import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 
@@ -31,16 +32,60 @@ public class ViewScheduleController {
 
     @FXML
     private void initialize() {
+        setupTableColumns();
         initializeData();
         setupFilters();
         populateStationFilters();
     }
 
+    private void setupTableColumns() {
+        if (scheduleTable == null || scheduleTable.getColumns().isEmpty()) {
+            return;
+        }
+        
+        // Set up cell value factories for each column
+        @SuppressWarnings("unchecked")
+        TableColumn<Schedule, String> trainNumberCol = (TableColumn<Schedule, String>) scheduleTable.getColumns().get(0);
+        trainNumberCol.setCellValueFactory(cellData -> cellData.getValue().trainNumberProperty());
+        
+        @SuppressWarnings("unchecked")
+        TableColumn<Schedule, String> trainNameCol = (TableColumn<Schedule, String>) scheduleTable.getColumns().get(1);
+        trainNameCol.setCellValueFactory(cellData -> cellData.getValue().trainNameProperty());
+        
+        @SuppressWarnings("unchecked")
+        TableColumn<Schedule, String> departureCol = (TableColumn<Schedule, String>) scheduleTable.getColumns().get(2);
+        departureCol.setCellValueFactory(cellData -> cellData.getValue().departureTimeProperty());
+        
+        @SuppressWarnings("unchecked")
+        TableColumn<Schedule, String> arrivalCol = (TableColumn<Schedule, String>) scheduleTable.getColumns().get(3);
+        arrivalCol.setCellValueFactory(cellData -> cellData.getValue().arrivalTimeProperty());
+        
+        @SuppressWarnings("unchecked")
+        TableColumn<Schedule, String> routeCol = (TableColumn<Schedule, String>) scheduleTable.getColumns().get(4);
+        routeCol.setCellValueFactory(cellData -> cellData.getValue().routeProperty());
+        
+        @SuppressWarnings("unchecked")
+        TableColumn<Schedule, String> daysCol = (TableColumn<Schedule, String>) scheduleTable.getColumns().get(5);
+        daysCol.setCellValueFactory(cellData -> cellData.getValue().daysProperty());
+        
+        @SuppressWarnings("unchecked")
+        TableColumn<Schedule, String> statusCol = (TableColumn<Schedule, String>) scheduleTable.getColumns().get(6);
+        statusCol.setCellValueFactory(cellData -> cellData.getValue().statusProperty());
+    }
+
     private void initializeData() {
-        scheduleData = FXCollections.observableArrayList(backend.getSchedules());
-        filteredData = new FilteredList<>(scheduleData, p -> true);
-        scheduleTable.setItems(filteredData);
-        updateCountLabel();
+        try {
+            scheduleData = FXCollections.observableArrayList(backend.getSchedules());
+            filteredData = new FilteredList<>(scheduleData, p -> true);
+            scheduleTable.setItems(filteredData);
+            updateCountLabel();
+        } catch (Exception e) {
+            System.err.println("Error loading schedules: " + e.getMessage());
+            e.printStackTrace();
+            scheduleData = FXCollections.observableArrayList();
+            filteredData = new FilteredList<>(scheduleData, p -> true);
+            scheduleTable.setItems(filteredData);
+        }
     }
 
     private void populateStationFilters() {
